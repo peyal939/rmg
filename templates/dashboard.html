@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% block page_title %}Dashboard{% endblock %}
+{% block head %}
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Time adapter for Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/dist/date-fns.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-12 col-lg-3">
+    <div class="card text-bg-primary">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-2 fw-bold" id="kpi-messages">0</div>
+            <div class="text-white-50">Messages (last 5 min)</div>
+          </div>
+          <i class="bi bi-graph-up fs-1"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-3">
+    <div class="card text-bg-success">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-2 fw-bold" id="kpi-devices">0</div>
+            <div class="text-white-50">Active Devices</div>
+          </div>
+          <i class="bi bi-cpu fs-1"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h3 class="card-title mb-0">Telemetry</h3>
+        <div class="d-flex gap-2 align-items-center">
+          <div class="input-group input-group-sm" style="width: 180px;">
+            <div class="input-group-prepend">
+              <span class="input-group-text">Metric</span>
+            </div>
+            <select id="metricSelect" class="form-select form-select-sm">
+              <option value="temperature" selected>temperature</option>
+              <option value="humidity">humidity</option>
+            </select>
+          </div>
+          <div class="input-group input-group-sm" style="width: 180px;">
+            <div class="input-group-prepend">
+              <span class="input-group-text">Range</span>
+            </div>
+            <select id="timeRangeSelect" class="form-select form-select-sm">
+              <option value="5" selected>Last 5 min</option>
+              <option value="15">Last 15 min</option>
+              <option value="60">Last 60 min</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="height: 320px;">
+          <canvas id="telemetryChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Send Command</h3>
+      </div>
+      <div class="card-body">
+        <form id="commandForm" method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Device ID</label>
+            <input class="form-control" name="device_id" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Command</label>
+            <input class="form-control" name="command" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Value (optional)</label>
+            <input class="form-control" name="value" />
+          </div>
+          <button class="btn btn-primary" type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title mb-0">Recent Telemetry</h3>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped mb-0">
+            <thead><tr><th>Time</th><th>Device</th><th>Metric</th><th>Value</th></tr></thead>
+            <tbody id="telemetryTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chart;
+let selectedMetric = 'temperature';
+let timeWindowMinutes = 5;
+
+const palette = [
+  '#0d6efd', '#20c997', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#198754', '#6610f2', '#0dcaf0'
+];
+
+function colorForIndex(i) {
+  return palette[i % palette.length];
+}
+
+function initChart() {
+  const ctx = document.getElementById('telemetryChart');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'minute', tooltipFormat: 'HH:mm:ss' },
+          ticks: { maxRotation: 0, autoSkip: true }
+        },
+        y: {
+          title: { display: true, text: 'Value' },
+          ticks: { precision: 2 }
+        }
+      }
+    }
+  });
+}
+
+function updateKPIs(count, devices) {
+  document.getElementById('kpi-messages').textContent = count;
+  document.getElementById('kpi-devices').textContent = devices;
+}
+
+function addRow(ts, device, metric, value) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${ts}</td><td>${device}</td><td>${metric}</td><td>${value}</td>`;
+  document.getElementById('telemetryTable').prepend(tr);
+}
+
+function buildDatasets(items) {
+  const byDevice = new Map();
+  for (const i of items) {
+    const dev = i.device_id || 'unknown';
+    const y = (i.value ?? (i.payload && i.payload.value));
+    const x = new Date(i.ts);
+    if (!byDevice.has(dev)) byDevice.set(dev, []);
+    byDevice.get(dev).push({ x, y });
+  }
+  const datasets = [];
+  let idx = 0;
+  for (const [dev, points] of byDevice.entries()) {
+    points.sort((a,b) => a.x - b.x);
+    const color = colorForIndex(idx++);
+    datasets.push({
+      label: dev,
+      data: points,
+      borderColor: color,
+      backgroundColor: color + '33',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 2,
+    });
+  }
+  return datasets;
+}
+
+async function fetchData() {
+  const now = new Date();
+  const since = new Date(now.getTime() - timeWindowMinutes * 60 * 1000);
+  const sinceIso = since.toISOString();
+  try {
+    const r = await fetch(`/api/telemetry/?metric=${encodeURIComponent(selectedMetric)}&since=${encodeURIComponent(sinceIso)}`);
+    const items = await r.json();
+    const datasets = buildDatasets(items);
+    chart.data.datasets = datasets;
+    chart.update('none');
+
+    const count = items.length;
+    const uniqueDevices = new Set(items.map(i => i.device_id)).size;
+    updateKPIs(count, uniqueDevices);
+
+    const tbody = document.getElementById('telemetryTable');
+    tbody.innerHTML = '';
+    const latest = items.slice(-20);
+    latest.reverse().forEach(i => addRow(new Date(i.ts).toLocaleTimeString(), i.device_id, i.metric || (i.payload && i.payload.metric) || '-', i.value ?? (i.payload && i.payload.value) ?? '-'));
+  } catch (err) {
+    console.error('Fetch telemetry failed', err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initChart();
+  fetchData();
+  setInterval(fetchData, 5000);
+
+  document.getElementById('metricSelect').addEventListener('change', (e) => {
+    selectedMetric = e.target.value || 'temperature';
+    fetchData();
+  });
+
+  document.getElementById('timeRangeSelect').addEventListener('change', (e) => {
+    const v = parseInt(e.target.value, 10);
+    timeWindowMinutes = isNaN(v) ? 5 : v;
+    document.querySelector('#kpi-messages').closest('.card-body').querySelector('.text-white-50').textContent = `Messages (last ${timeWindowMinutes} min)`;
+    fetchData();
+  });
+
+  document.getElementById('commandForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const device_id = form.device_id.value.trim();
+    const command = form.command.value.trim();
+    const value = form.value.value;
+    if (!device_id || !command) return;
+    const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const payload = value ? { device_id, command, value } : { device_id, command };
+    try {
+      const res = await fetch('/api/commands/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      form.reset();
+      alert('Command sent');
+    } catch (err) {
+      console.error('Command failed', err);
+      alert('Command failed: ' + err.message);
+    }
+  });
+});
+</script>
+{% endblock %}

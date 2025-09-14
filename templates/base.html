@@ -1,0 +1,95 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{% block title %}IoT Dashboard{% endblock %}</title>
+
+    <!-- Fonts (CDN for performance) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" media="print" onload="this.media='all'" />
+
+    <!-- OverlayScrollbars CSS (CDN) required by AdminLTE v5 examples) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" />
+
+    <!-- Bootstrap Icons (CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
+
+    <!-- AdminLTE v5 CSS (local from cloned repo) -->
+    <link rel="stylesheet" href="{% static 'css/adminlte.css' %}" />
+
+    {% block head %}{% endblock %}
+  </head>
+  <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
+    <div class="app-wrapper">
+      <!-- Header -->
+      <nav class="app-header navbar navbar-expand bg-body">
+        <div class="container-fluid">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
+                <i class="bi bi-list"></i>
+              </a>
+            </li>
+            <li class="nav-item d-none d-md-block">
+              <a href="/" class="nav-link">Home</a>
+            </li>
+          </ul>
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item d-none d-md-block">
+              <a href="/admin" class="nav-link">Admin</a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <!-- Sidebar -->
+      <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+        <div class="sidebar-brand">
+          <a href="/" class="brand-link">
+            <span class="brand-text fw-light">IoT Dashboard</span>
+          </a>
+        </div>
+        <div class="sidebar-wrapper">
+          <nav class="mt-2">
+            <ul class="nav sidebar-menu flex-column" role="menu">
+              <li class="nav-item">
+                <a href="/" class="nav-link active">
+                  <i class="nav-icon bi bi-speedometer2"></i>
+                  <p>Dashboard</p>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Main content -->
+      <main class="app-main">
+        <div class="app-content p-3">
+          <div class="container-fluid">
+            <div class="row mb-2">
+              <div class="col-sm-6">
+                <h1 class="m-0">{% block page_title %}Dashboard{% endblock %}</h1>
+              </div>
+            </div>
+            {% block content %}{% endblock %}
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <div class="float-end d-none d-sm-inline">Prototype</div>
+        <strong>&copy; 2025 IoT Demo.</strong>
+      </footer>
+    </div>
+
+    <!-- Scripts: OverlayScrollbars (CDN) and AdminLTE (local) -->
+    <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js"></script>
+    <script src="{% static 'js/adminlte.js' %}"></script>
+    {% block scripts_head %}{% endblock %}
+    {% block scripts %}{% endblock %}
+  </body>
+  </html>
